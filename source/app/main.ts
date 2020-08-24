@@ -8,10 +8,10 @@
 import { app, BrowserWindow } from "electron";
 
 ////////////////////////////////////////////////////////////////////////////////
-// HOT MODULE RELOADING FOR MAIN AND RENDERER
+// RELOADER FOR MAIN AND RENDERER
 
 try {
-    require("electron-reloader")(module);
+    require("electron-reloader")(module, { ignore: "source" });
 }
 catch (e) {}
 
