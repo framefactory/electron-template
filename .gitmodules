@@ -1,0 +1,3 @@
+[submodule "libs/ff-core"]
+	path = libs/ff-core
+	url = https://github.com/framefactory/ff-core.git

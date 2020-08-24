@@ -1,0 +1,11 @@
+{
+    "references": [
+        { "path": "ff-core/tsconfig.module.json" }
+    ],
+    "compilerOptions": {
+        "composite": true
+    },
+    "exclude": [
+        "*"
+    ]
+}

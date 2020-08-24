@@ -1,0 +1,14 @@
+# FOLDERS
+.idea/
+.vscode/
+.cache/
+node_modules/
+
+doc/
+app/bin/
+app/pages/built/
+
+# FILES
+.env
+*.log
+.DS_Store
