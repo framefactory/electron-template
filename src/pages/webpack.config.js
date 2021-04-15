@@ -14,7 +14,7 @@ const webpack = require("webpack");
 
 const TerserPlugin = require("terser-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const OptimizeCSSAssetsPlugin = require("optimize-css-assets-webpack-plugin");
+const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
 
 let projectVersion = "v0.0.0";
@@ -29,7 +29,7 @@ catch {}
 const projectDir = path.resolve(__dirname, "../..");
 
 const dirs = {
-    source: path.resolve(projectDir, "source"),
+    source: path.resolve(projectDir, "src"),
     output: path.resolve(projectDir, "app/pages"),
     modules: path.resolve(projectDir, "node_modules"),
     libs: path.resolve(projectDir, "libs"),
@@ -47,7 +47,7 @@ const modules = [
 // import aliases
 const alias = {
     "client": path.resolve(dirs.source, "client"),
-    "@ff/core": "ff-core/source",
+    "@ff/core": "@framefactory/core",
 };
 
 // project components to be built
@@ -59,7 +59,7 @@ const components = {
         subdir: "built",
         entry: "pages/index.ts",
         template: "pages/index.hbs",
-        element: "ff-application",
+        element: "<ff-application></ff-application>",
     },
 };
 
@@ -77,21 +77,28 @@ WEBPACK - PROJECT BUILD CONFIGURATION
    source folder: ${dirs.source}
    output folder: ${dirs.output}
   modules folder: ${dirs.modules}
-  library folder: ${dirs.libs}`);
+  library folder: ${dirs.libs}
+`);
 
-    const componentKey = argv.component !== undefined ? argv.component : "default";
+    const componentKey = argv.component !== undefined ? argv.component : "all";
+    let configurations = null;
 
     if (componentKey === "all") {
-        return Object.keys(components).map(key => createBuildConfiguration(environment, dirs, components[key]));
+        configurations = Object.keys(components).map(key => createBuildConfiguration(environment, dirs, components[key]));
+    }
+    else {
+        const component = components[componentKey];
+
+        if (component === undefined) {
+            console.warn(`\n[webpack.config.js] can't build, component not existing: '${componentKey}'`);
+            process.exit(1);
+        }
+        
+        configurations = [ createBuildConfiguration(environment, dirs, component) ];
     }
 
-    const component = components[componentKey];
-    if (component === undefined) {
-        console.warn(`\n[webpack.config.js] can't build, component not existing: '${componentKey}'`);
-        process.exit(1);
-    }
-
-    return createBuildConfiguration(environment, dirs, components[componentKey]);}
+    return configurations;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -99,32 +106,33 @@ function createBuildConfiguration(environment, dirs, component)
 {
     const isDevMode = environment.isDevMode;
     const buildMode = isDevMode ? "development" : "production";
-    const devTool = isDevMode ? "source-map" : undefined;
+    const componentVersion = component.version || projectVersion;
 
-    const displayTitle = `${component.title} ${component.version} ${isDevMode ? "DEV" : "PROD"}`;
+    const displayTitle = `${component.title} ${componentVersion} ${isDevMode ? "DEV" : ""}`;
 
-    const outputDir = path.resolve(dirs.output, component.subdir);
+    const outputDir = component.subdir ? path.resolve(dirs.output, component.subdir) : dirs.output;
     mkdirp.sync(outputDir);
 
-    const jsOutputFileName = isDevMode ? "js/[name].dev.js" : "js/[name].min.js";
-    const cssOutputFileName = isDevMode ? "css/[name].dev.css" : "css/[name].min.css";
-    const htmlOutputFileName = isDevMode ? `${component.bundle}.dev.html` : `${component.bundle}.html`;
-    const htmlElement = component.element ? `<${component.element}></${component.element}>` : undefined;
+    const jsOutputFileName = "js/[name].js"; //isDevMode ? "js/[name].dev.js" : "js/[name].min.js";
+    const cssOutputFileName = "css/[name].css"; //isDevMode ? "css/[name].dev.css" : "css/[name].min.css";
+    const htmlOutputFileName = `${component.bundle}.html`;
+    const htmlElement = component.element;
 
     console.log(`
 WEBPACK - COMPONENT BUILD CONFIGURATION
         bundle: ${component.bundle}
          title: ${displayTitle}
-       version: ${component.version}
+       version: ${componentVersion}
  output folder: ${outputDir}
        js file: ${jsOutputFileName}
       css file: ${cssOutputFileName}
-     html file: ${htmlOutputFileName}
-  html element: ${htmlElement || "N/A"}`);
+     html file: ${component.template ? htmlOutputFileName : "n/a"}
+  html element: ${component.element ? htmlElement : "n/a"}
+    `);
 
-    return {
+    const config = {
         mode: buildMode,
-        devtool: devTool,
+        devtool: isDevMode ? "source-map" : false,
 
         entry: {
             [component.bundle]: path.resolve(dirs.source, component.entry),
@@ -132,16 +140,13 @@ WEBPACK - COMPONENT BUILD CONFIGURATION
 
         output: {
             path: outputDir,
-            filename: jsOutputFileName,
+            filename: jsOutputFileName
         },
 
         resolve: {
-            // module search paths
             modules,
-            // library aliases
             alias,
-            // Resolvable extensions
-            extensions: [".ts", ".tsx", ".js", ".jsx", ".json", ".wasm"],
+            extensions: [".ts", ".tsx", ".js", ".jsx", ".json", ".wasm" ],
         },
 
         optimization: {
@@ -149,28 +154,18 @@ WEBPACK - COMPONENT BUILD CONFIGURATION
 
             minimizer: [
                 new TerserPlugin({ parallel: true }),
-                new OptimizeCSSAssetsPlugin({}),
-            ]
+                new CssMinimizerPlugin(),
+            ],
         },
 
         plugins: [
             new webpack.DefinePlugin({
                 ENV_PRODUCTION: JSON.stringify(!isDevMode),
                 ENV_DEVELOPMENT: JSON.stringify(isDevMode),
-                ENV_VERSION: JSON.stringify(component.version),
+                ENV_VERSION: JSON.stringify(componentVersion),
             }),
             new MiniCssExtractPlugin({
                 filename: cssOutputFileName,
-                allChunks: true,
-            }),
-            new HTMLWebpackPlugin({
-                filename: htmlOutputFileName,
-                template: path.resolve(dirs.source, component.template),
-                title: displayTitle,
-                version: component.version,
-                isDevelopment: isDevMode,
-                element: htmlElement,
-                chunks: [ component.bundle ],
             })
         ],
 
@@ -208,7 +203,7 @@ WEBPACK - COMPONENT BUILD CONFIGURATION
                     // SCSS
                     test: /\.s[ac]ss$/i,
                     use: [
-                        MiniCssExtractPlugin.loader,
+                        isDevMode ? "style-loader" : MiniCssExtractPlugin.loader,
                         'css-loader',
                         'sass-loader',
                     ],
@@ -217,7 +212,7 @@ WEBPACK - COMPONENT BUILD CONFIGURATION
                     // CSS
                     test: /\.css$/,
                     use: [
-                        MiniCssExtractPlugin.loader,
+                        isDevMode ? "style-loader" : MiniCssExtractPlugin.loader,
                         "css-loader",
                     ]
                 },
@@ -229,4 +224,18 @@ WEBPACK - COMPONENT BUILD CONFIGURATION
             ],
         },
     };
+
+    if (component.template) {
+        config.plugins.push(new HTMLWebpackPlugin({
+            filename: htmlOutputFileName,
+            template: path.resolve(dirs.source, component.template),
+            title: displayTitle,
+            version: componentVersion,
+            isDevelopment: isDevMode,
+            element: htmlElement,
+            chunks: [ component.bundle ],
+        }));
+    }
+
+    return config;
 }

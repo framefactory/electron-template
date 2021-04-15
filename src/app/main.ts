@@ -1,8 +1,8 @@
 /**
- * template
+ * Electron application template
+ * Copyright 2021 Ralph Wiedemeier, Frame Factory GmbH
  *
- * @author Ralph Wiedemeier <ralph@framefactory.io>
- * @copyright (c) 2020 Frame Factory GmbH
+ * License: MIT
  */
 
 import { app, BrowserWindow } from "electron";
@@ -11,7 +11,7 @@ import { app, BrowserWindow } from "electron";
 // RELOADER FOR MAIN AND RENDERER
 
 try {
-    require("electron-reloader")(module, { ignore: "source" });
+    require("electron-reloader")(module, { ignore: "src" });
 }
 catch (e) {}
 
@@ -27,7 +27,7 @@ function createWindow()
         }
     });
 
-    win.loadFile("app/pages/built/app.dev.html");
+    win.loadFile("app/pages/built/app.html");
 }
 
 app.whenReady().then(createWindow);

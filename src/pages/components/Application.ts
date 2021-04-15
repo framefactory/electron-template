@@ -1,8 +1,8 @@
 /**
- * template
+ * Electron application template
+ * Copyright 2021 Ralph Wiedemeier, Frame Factory GmbH
  *
- * @author Ralph Wiedemeier <ralph@framefactory.io>
- * @copyright (c) 2020 Frame Factory GmbH
+ * License: MIT
  */
 
 import { LitElement, html, customElement } from "lit-element";
