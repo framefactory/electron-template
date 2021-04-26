@@ -1,3 +1,6 @@
 [submodule "libs/ff-core"]
 	path = libs/core
 	url = https://github.com/framefactory/ff-core.git
+[submodule "libs/browser"]
+	path = libs/browser
+	url = git@github.com:framefactory/ff-browser

@@ -7,12 +7,14 @@
 
 import { LitElement, html, customElement } from "lit-element";
 
+////////////////////////////////////////////////////////////////////////////////
+
 @customElement("ff-application")
 export default class Application extends LitElement
 {
     render()
     {
-        return html`<h1>Electron App Template</h1>
+        return html`<h1>Electron Application Template</h1>
             <p>Hello, World!</p>`;
     }
 }

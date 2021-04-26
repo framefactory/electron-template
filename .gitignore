@@ -5,8 +5,7 @@
 node_modules/
 
 doc/
-app/bin/
-app/pages/built/
+bin/
 
 # FILES
 .env

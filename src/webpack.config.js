@@ -1,6 +1,7 @@
 /**
  * Webpack configuration
  * Typescript / Web Components / SCSS
+ * Version 3.3
  */
 
 "use strict";
@@ -16,6 +17,8 @@ const TerserPlugin = require("terser-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
+const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 let projectVersion = "v0.0.0";
 try {
@@ -24,15 +27,19 @@ try {
 catch {}
 
 ////////////////////////////////////////////////////////////////////////////////
-// PROJECT / COMPONENTS
+// CONFIGURATION
 
-const projectDir = path.resolve(__dirname, "../..");
+const defaultTarget = "web";
+const useDevServer = false;
+const projectDir = path.resolve(__dirname, "..");
 
 const dirs = {
     source: path.resolve(projectDir, "src"),
-    output: path.resolve(projectDir, "app/pages"),
+    output: path.resolve(projectDir, "bin"),
+    //static: path.resolve(projectDir, "src/renderer/assets"),
     modules: path.resolve(projectDir, "node_modules"),
-    libs: path.resolve(projectDir, "libs"),
+    jsFolder: "", // "js/",
+    cssFolder: "", // "css/",
 };
 
 // create folders if necessary
@@ -40,25 +47,31 @@ mkdirp.sync(dirs.output)
 
 // module search paths
 const modules = [
-    dirs.libs,
     dirs.modules,
 ];
 
 // import aliases
 const alias = {
-    "client": path.resolve(dirs.source, "client"),
-    "@ff/core": "@framefactory/core",
+    "@ff/core": path.resolve(dirs.modules, "@framefactory/core/src"),
+    "@ff/browser": path.resolve(dirs.modules, "@framefactory/browser/src"),
 };
 
 // project components to be built
 const components = {
-    "default": {
-        bundle: "app",
-        title: "Template",
+    "main": {
+        bundle: "index",
+        subdir: "main",
+        target: "electron-main",
+        entry: "main/index.ts",
+    },
+    "renderer": {
+        bundle: "index",
+        subdir: "renderer",
+        target: "electron-renderer",
+        title: "template",
         version: projectVersion,
-        subdir: "built",
-        entry: "pages/index.ts",
-        template: "pages/index.hbs",
+        entry: "renderer/index.ts",
+        template: "renderer/index.hbs",
         element: "<ff-application></ff-application>",
     },
 };
@@ -77,8 +90,7 @@ WEBPACK - PROJECT BUILD CONFIGURATION
    source folder: ${dirs.source}
    output folder: ${dirs.output}
   modules folder: ${dirs.modules}
-  library folder: ${dirs.libs}
-`);
+    `);
 
     const componentKey = argv.component !== undefined ? argv.component : "all";
     let configurations = null;
@@ -97,6 +109,39 @@ WEBPACK - PROJECT BUILD CONFIGURATION
         configurations = [ createBuildConfiguration(environment, dirs, component) ];
     }
 
+    if (configurations) {
+        if (dirs.static) {
+            const copyAssetsPlugin = new CopyWebpackPlugin({
+                patterns: [{ from: dirs.static, to: path.resolve(dirs.output, "assets") }]
+            });
+            configurations[0].plugins.push(copyAssetsPlugin);
+        }
+
+        if (useDevServer) {
+            configurations[0].devServer = {
+                contentBase: [ dirs.output, dirs.static ],
+                contentBasePublicPath: [ "/", "/" ],
+                sockHost: process.env["DEV_SERVER_WEBSOCKET_HOST"],
+                sockPort: process.env["DEV_SERVER_WEBSOCKET_PORT"],
+                port: process.env["DEV_SERVER_PORT"],
+                disableHostCheck: true,
+                before: function(app /* , server, compiler */) {
+                    app.get("/", function(req, res) {
+                        res.redirect(`${components.default.bundle}.html`);
+                    });
+                },
+            }
+        }
+
+        configurations.forEach(configuration => {
+            if (configuration.target === "electron-main") {
+                configuration.externals = {
+                    "electron-reload": "commonjs2 electron-reload",
+                };
+            }
+        });
+    }
+
     return configurations;
 }
 
@@ -107,32 +152,35 @@ function createBuildConfiguration(environment, dirs, component)
     const isDevMode = environment.isDevMode;
     const buildMode = isDevMode ? "development" : "production";
     const componentVersion = component.version || projectVersion;
+    const target = component.target || defaultTarget;
 
-    const displayTitle = `${component.title} ${componentVersion} ${isDevMode ? "DEV" : ""}`;
+    const displayTitle = component.title + (isDevMode ? ` ${componentVersion} DEV` : "");
 
     const outputDir = component.subdir ? path.resolve(dirs.output, component.subdir) : dirs.output;
     mkdirp.sync(outputDir);
 
-    const jsOutputFileName = "js/[name].js"; //isDevMode ? "js/[name].dev.js" : "js/[name].min.js";
-    const cssOutputFileName = "css/[name].css"; //isDevMode ? "css/[name].dev.css" : "css/[name].min.css";
+    const jsOutputFileName = path.join(dirs.jsFolder, "[name].js");
+    const cssOutputFileName = path.join(dirs.cssFolder, "[name].css");
     const htmlOutputFileName = `${component.bundle}.html`;
     const htmlElement = component.element;
 
     console.log(`
 WEBPACK - COMPONENT BUILD CONFIGURATION
-        bundle: ${component.bundle}
-         title: ${displayTitle}
-       version: ${componentVersion}
- output folder: ${outputDir}
-       js file: ${jsOutputFileName}
-      css file: ${cssOutputFileName}
-     html file: ${component.template ? htmlOutputFileName : "n/a"}
-  html element: ${component.element ? htmlElement : "n/a"}
+         bundle: ${component.bundle}
+         target: ${target}
+          title: ${displayTitle}
+        version: ${componentVersion}
+  output folder: ${outputDir}
+        js file: ${jsOutputFileName}
+       css file: ${cssOutputFileName}
+      html file: ${component.template ? htmlOutputFileName : "n/a"}
+   html element: ${component.element ? htmlElement : "n/a"}
     `);
 
     const config = {
         mode: buildMode,
         devtool: isDevMode ? "source-map" : false,
+        target: component.target || target,
 
         entry: {
             [component.bundle]: path.resolve(dirs.source, component.entry),
@@ -166,7 +214,8 @@ WEBPACK - COMPONENT BUILD CONFIGURATION
             }),
             new MiniCssExtractPlugin({
                 filename: cssOutputFileName,
-            })
+            }),
+            new ForkTsCheckerWebpackPlugin(),
         ],
 
         module: {
