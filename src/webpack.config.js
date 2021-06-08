@@ -1,7 +1,7 @@
 /**
  * Webpack configuration
  * Typescript / Web Components / SCSS
- * Version 3.3
+ * Version 3.4
  */
 
 "use strict";
@@ -35,8 +35,9 @@ const projectDir = path.resolve(__dirname, "..");
 
 const dirs = {
     source: path.resolve(projectDir, "src"),
+    //assets: path.resolve(projectDir, "src/renderer/assets"),
     output: path.resolve(projectDir, "bin"),
-    //static: path.resolve(projectDir, "src/renderer/assets"),
+    //static: path.resolve(projectDir, "bin/assets"),
     modules: path.resolve(projectDir, "node_modules"),
     jsFolder: "", // "js/",
     cssFolder: "", // "css/",
@@ -94,13 +95,13 @@ WEBPACK - PROJECT BUILD CONFIGURATION
 
     const componentKey = argv.component !== undefined ? argv.component : "all";
     let configurations = null;
-
+  
     if (componentKey === "all") {
         configurations = Object.keys(components).map(key => createBuildConfiguration(environment, dirs, components[key]));
     }
     else {
         const component = components[componentKey];
-
+  
         if (component === undefined) {
             console.warn(`\n[webpack.config.js] can't build, component not existing: '${componentKey}'`);
             process.exit(1);
@@ -110,9 +111,9 @@ WEBPACK - PROJECT BUILD CONFIGURATION
     }
 
     if (configurations) {
-        if (dirs.static) {
+        if (dirs.assets && dirs.static) {
             const copyAssetsPlugin = new CopyWebpackPlugin({
-                patterns: [{ from: dirs.static, to: path.resolve(dirs.output, "assets") }]
+                patterns: [{ from: dirs.assets, to: dirs.static }]
             });
             configurations[0].plugins.push(copyAssetsPlugin);
         }

@@ -7,9 +7,15 @@
         "experimentalDecorators": true,
         "sourceMap": true,
 
-        "baseUrl": "../../..",
+        "allowJs": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+
+        "baseUrl": "..",
         "paths": {
-            "@ff/core/*": [ "node_modules/@framefactory/core/src/*" ]
+            "@ff/core/*": [ "node_modules/@framefactory/core/src/*" ],
+            "electron": [ "node_modules/electron-nightly/electron" ],
+            "*": [ "node_modules/*" ],
         }
     }
 }
